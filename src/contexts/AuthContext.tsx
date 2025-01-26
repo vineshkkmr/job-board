@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import toast from 'react-hot-toast';
 
 type UserRole = 'admin' | 'recruiter' | 'applicant';
 
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser({ ...user, role: userData?.role });
         } catch (error) {
           console.error('Error fetching user data:', error);
+          toast.error('Error loading user data');
         }
       } else {
         setUser(null);
@@ -105,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

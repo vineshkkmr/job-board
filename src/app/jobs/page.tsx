@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { Job } from '@/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { FiBriefcase, FiMapPin, FiDollarSign, FiSearch, FiFilter } from 'react-icons/fi';
 
 // Store job IDs in localStorage for static generation
 const storeJobIds = (jobs: Job[]) => {
@@ -19,7 +20,10 @@ const storeJobIds = (jobs: Job[]) => {
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('');
   const router = useRouter();
 
   useEffect(() => {
@@ -36,10 +40,10 @@ export default function JobsPage() {
             ...doc.data()
           })) as Job[];
         
-        // Filter active jobs and store all job IDs
         const activeJobs = jobsData.filter(job => job.status === 'active');
-        storeJobIds(jobsData); // Store all job IDs, not just active ones
+        storeJobIds(jobsData);
         setJobs(activeJobs);
+        setFilteredJobs(activeJobs);
       } catch (error) {
         console.error('Error fetching jobs:', error);
       } finally {
@@ -49,6 +53,24 @@ export default function JobsPage() {
 
     fetchJobs();
   }, []);
+
+  useEffect(() => {
+    const filtered = jobs.filter(job => {
+      const matchesSearch = 
+        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.description.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesType = selectedType ? job.type === selectedType : true;
+      
+      return matchesSearch && matchesType;
+    });
+    
+    setFilteredJobs(filtered);
+  }, [searchTerm, selectedType, jobs]);
+
+  const jobTypes = Array.from(new Set(jobs.map(job => job.type)));
 
   if (loading) {
     return (
@@ -60,56 +82,96 @@ export default function JobsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Available Jobs</h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4 md:mb-0">Available Jobs</h1>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search jobs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white w-full sm:w-64"
+            />
+          </div>
+          <div className="relative">
+            <FiFilter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white appearance-none cursor-pointer w-full sm:w-48"
+            >
+              <option value="">All Types</option>
+              {jobTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
-      {jobs.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-xl text-gray-600">No jobs available at the moment.</p>
+      {filteredJobs.length === 0 ? (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+          <FiBriefcase className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-4 text-xl text-gray-600 dark:text-gray-300">No jobs found matching your criteria.</p>
+          <button
+            onClick={() => { setSearchTerm(''); setSelectedType(''); }}
+            className="mt-4 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+          >
+            Clear filters
+          </button>
         </div>
       ) : (
         <div className="grid gap-6">
-          {jobs.map((job) => (
+          {filteredJobs.map((job) => (
             <div
               key={job.id}
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 cursor-pointer border border-gray-100 dark:border-gray-700"
               onClick={() => router.push(`/jobs/${job.id}`)}
             >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                     {job.title}
                   </h2>
-                  <p className="text-gray-600 text-lg mb-2">{job.company}</p>
-                  <p className="text-gray-600">{job.location}</p>
+                  <div className="flex flex-wrap gap-4 text-gray-600 dark:text-gray-300">
+                    <div className="flex items-center">
+                      <FiBriefcase className="w-5 h-5 mr-2 text-gray-400" />
+                      <span>{job.company}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <FiMapPin className="w-5 h-5 mr-2 text-gray-400" />
+                      <span>{job.location}</span>
+                    </div>
+                    {job.salary && (
+                      <div className="flex items-center">
+                        <FiDollarSign className="w-5 h-5 mr-2 text-gray-400" />
+                        <span>
+                          {job.salary.currency} {job.salary.min.toLocaleString()} - {job.salary.max.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="inline-block bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
+                <div className="flex items-center gap-4">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                    ${job.type === 'full-time' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                      job.type === 'part-time' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                      job.type === 'contract' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}
+                  >
                     {job.type}
                   </span>
                 </div>
               </div>
               
-              <div className="prose max-w-none mb-4">
-                <p className="text-gray-700 line-clamp-2">{job.description}</p>
+              <div className="mt-4">
+                <p className="text-gray-600 dark:text-gray-300 line-clamp-2">{job.description}</p>
               </div>
 
-              {job.salary && (
-                <p className="text-gray-600 mb-4">
-                  <span className="font-semibold">Salary:</span>{' '}
-                  {job.salary.currency} {job.salary.min.toLocaleString()} - {job.salary.max.toLocaleString()} per year
-                </p>
-              )}
-
-              <div className="flex justify-between items-center mt-4 pt-4 border-t">
-                <div className="text-sm text-gray-600">
-                  Posted on {new Date(job.createdAt).toLocaleDateString()}
-                </div>
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  View Details
-                </Link>
+              <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                Posted on {new Date(job.createdAt).toLocaleDateString()}
               </div>
             </div>
           ))}
